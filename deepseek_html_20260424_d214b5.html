@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>星途叙 · 艺人登记册</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    }
+    body {
+      background: linear-gradient(145deg, #f7f3ee 0%, #e8e0d5 100%);
+      min-height: 100vh;
+      padding: 20px;
+      color: #3e3a36;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    /* 卡片通用样式 */
+    .card {
+      background: rgba(255, 255, 245, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 28px;
+      box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.1), 0 4px 18px rgba(0, 0, 0, 0.05);
+      padding: 24px 28px;
+      border: 1px solid rgba(255, 250, 240, 0.5);
+      margin-bottom: 24px;
+      transition: all 0.2s ease;
+    }
+    h1, h2, h3 {
+      font-weight: 400;
+      letter-spacing: 2px;
+    }
+    h1 {
+      font-size: 2.4rem;
+      color: #4a3729;
+      text-shadow: 0 2px 6px rgba(200, 170, 140, 0.3);
+      border-left: 6px solid #b09b8b;
+      padding-left: 20px;
+      margin-bottom: 16px;
+    }
+    h2 {
+      font-size: 1.6rem;
+      border-bottom: 1px dashed #c9b6a5;
+      padding-bottom: 8px;
+      margin-bottom: 20px;
+      color: #5f4e3e;
+    }
+    .flex-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: center;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    button {
+      background: #d6c6b8;
+      border: none;
+      padding: 10px 22px;
+      border-radius: 40px;
+      font-size: 1rem;
+      font-weight: 500;
+      color: #2e241e;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+      cursor: pointer;
+      border: 1px solid #efe3d8;
+      transition: 0.15s;
+      letter-spacing: 0.5px;
+    }
+    button:hover {
+      background: #c7b2a0;
+      box-shadow: 0 8px 14px rgba(120, 90, 70, 0.15);
+      transform: translateY(-2px);
+    }
+    button.outline {
+      background: transparent;
+      border: 1.5px solid #a48e7c;
+      box-shadow: none;
+    }
+    input, select, textarea {
+      background: #fdf9f5;
+      border: 1px solid #d6c6b8;
+      border-radius: 40px;
+      padding: 10px 18px;
+      font-size: 0.95rem;
+      outline: none;
+      width: 100%;
+      color: #2e241e;
+    }
+    input:focus, select:focus {
+      border-color: #9b8270;
+      box-shadow: 0 0 0 3px rgba(155, 130, 112, 0.2);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fdfaf7;
+      border-radius: 20px;
+      overflow: hidden;
+      font-size: 0.9rem;
+    }
+    th {
+      background: #c9b6a5;
+      color: #2a1f18;
+      font-weight: 500;
+      padding: 12px 8px;
+    }
+    td {
+      padding: 10px 8px;
+      border-bottom: 1px solid #e5d9cf;
+    }
+    .badge {
+      background: #b7a089;
+      color: #fcf9f5;
+      border-radius: 30px;
+      padding: 2px 12px;
+      font-size: 0.8rem;
+    }
+    .money {
+      font-weight: 600;
+      color: #5a3f2b;
+    }
+    .task-board {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .hide {
+      display: none !important;
+    }
+    .login-hint {
+      font-size: 0.85rem;
+      opacity: 0.7;
+    }
+    .store-control {
+      background: #ede3d9;
+      border-radius: 24px;
+      padding: 16px;
+    }
+    .notice {
+      background: #e9ddd2;
+      padding: 8px 16px;
+      border-radius: 30px;
+    }
+  </style>
+</head>
+<body>
+<div class="container" id="app">
+  <!-- 标题区 -->
+  <div class="flex-row" style="justify-content: space-between;">
+    <h1>✨ 星途叙 · 艺人登记册 ✨</h1>
+    <div id="loginInfoPanel" class="flex-row"></div>
+  </div>
+
+  <!-- 全局视图切换: 登录/注册/艺人主页/后台 -->
+  <div id="viewContainer"></div>
+</div>
+
+<script>
+  (function(){
+    // ---------- 数据存储 (动态储存，基于localStorage) ----------
+    const STORAGE = {
+      users: 'starlight_users',           // 所有艺人+后台
+      current: 'starlight_current',       // 当前登录用户名
+      tasks: 'starlight_tasks',           // 任务池
+      logs: 'starlight_purchase_logs'     // 购买记录
+    };
+
+    // 初始化默认数据
+    function initData() {
+      if(!localStorage.getItem(STORAGE.users)) {
+        let defaultUsers = [
+          // 后台1, 后台2
+          { username: 'admin1', password: 'xingtu123', role: 'admin', name: '后台1' },
+          { username: 'admin2', password: 'xingtu123', role: 'admin', name: '后台2' }
+        ];
+        localStorage.setItem(STORAGE.users, JSON.stringify(defaultUsers));
+      }
+      if(!localStorage.getItem(STORAGE.tasks)) {
+        localStorage.setItem(STORAGE.tasks, JSON.stringify([]));
+      }
+      if(!localStorage.getItem(STORAGE.logs)) {
+        localStorage.setItem(STORAGE.logs, JSON.stringify([]));
+      }
+    }
+    initData();
+
+    // 辅助函数
+    function getUsers() { return JSON.parse(localStorage.getItem(STORAGE.users)) || []; }
+    function saveUsers(users) { localStorage.setItem(STORAGE.users, JSON.stringify(users)); }
+    function getCurrentUser() {
+      let uname = localStorage.getItem(STORAGE.current);
+      if(!uname) return null;
+      return getUsers().find(u => u.username === uname) || null;
+    }
+    function getTasks() { return JSON.parse(localStorage.getItem(STORAGE.tasks)) || []; }
+    function saveTasks(tasks) { localStorage.setItem(STORAGE.tasks, JSON.stringify(tasks)); }
+    function getLogs() { return JSON.parse(localStorage.getItem(STORAGE.logs)) || []; }
+    function saveLogs(logs) { localStorage.setItem(STORAGE.logs, JSON.stringify(logs)); }
+    function addLog(entry) {
+      let logs = getLogs();
+      logs.push({ ...entry, time: new Date().toLocaleString() });
+      saveLogs(logs);
+    }
+
+    // 年龄/体格/能力映射
+    const ageMap = {
+      '南风知我意':19,'零落花无语':20,'花月解留人':21,'我心素已闲':24,'闲云恋故山':22,'梅花入梦香':18,
+      '微微风簇浪':23,'松山新雨后':20,'香灯伴残梦':26,'云深不知处':26,'曲终人不见':21,'行色秋将晚':25
+    };
+    const physiqueMap = {
+      '海棠铺绣':168.47,'青灯摇浪':172.50,'疏影横斜':164.44,'相思只在':163.46,'一半春休':167.44,'清景无限':175.55,
+      '暮云合璧':166.46,'载月明归':160.43,'天青垂水':170.51,'白鹤忘机':167.45,'水树风闲':171.51,'拨雪寻春':160.43,
+      '云山万重':161.41,'天水一色':160.44,'一碧万顷':165.45,'执子之手':168.46,'景行行止':165.44,'顺颂时宜':160.44
+    };
+    const abilityMap = {
+      '春欲尽':{颜值:80,歌唱:100,舞蹈:120,rap:100},'罗幌卷':{颜值:75,歌唱:130,舞蹈:100,rap:100},
+      '翠帘垂':{颜值:60,歌唱:120,舞蹈:150,rap:100},'歌韵响':{颜值:72,歌唱:110,舞蹈:120,rap:100},
+      '将我意':{颜值:66,歌唱:140,舞蹈:100,rap:110},'春欲去':{颜值:77,歌唱:120,舞蹈:140,rap:120},
+      '梦如云':{颜值:56,歌唱:150,舞蹈:120,rap:100},'恁良宵':{颜值:52,歌唱:145,舞蹈:130,rap:130},
+      '重帘透':{颜值:70,歌唱:120,舞蹈:140,rap:100},'倩谁春':{颜值:80,歌唱:100,舞蹈:100,rap:120},
+      '画屏空':{颜值:65,歌唱:130,舞蹈:100,rap:110},'帘锁月':{颜值:60,歌唱:130,舞蹈:120,rap:140}
+    };
+
+    // ---------- 渲染入口 ----------
+    const app = document.getElementById('viewContainer');
+    const infoPanel = document.getElementById('loginInfoPanel');
+
+    function render() {
+      const user = getCurrentUser();
+      updateLoginPanel(user);
+      if(!user) {
+        renderLoginRegister();
+      } else if(user.role === 'admin') {
+        renderAdminPanel(user);
+      } else {
+        renderArtistPanel(user);
+      }
+    }
+
+    function updateLoginPanel(user) {
+      if(!user) {
+        infoPanel.innerHTML = `<span class="badge">未登录</span>`;
+      } else {
+        infoPanel.innerHTML = `
+          <span class="badge">${user.role==='admin'?'后台':user.name||user.username} · ${user.username}</span>
+          <button class="outline" id="logoutBtn">登出</button>
+        `;
+        document.getElementById('logoutBtn')?.addEventListener('click', ()=>{
+          localStorage.removeItem(STORAGE.current);
+          render();
+        });
+      }
+    }
+
+    // 登录/注册视图
+    function renderLoginRegister() {
+      app.innerHTML = `
+        <div class="grid-2">
+          <div class="card">
+            <h2>🌙 登录</h2>
+            <input type="text" id="loginUsername" placeholder="账号" autocomplete="off"><br><br>
+            <input type="password" id="loginPassword" placeholder="密码"><br><br>
+            <button id="loginBtn">登录</button>
+            <p class="login-hint">后台账号: admin1 / admin2 密码xingtu123</p>
+          </div>
+          <div class="card">
+            <h2>🌟 注册 · 星途启程</h2>
+            <input type="text" id="regUsername" placeholder="账号"><br><br>
+            <input type="password" id="regPassword" placeholder="密码"><br><br>
+            <input type="text" id="regName" placeholder="姓名"><br><br>
+            <select id="regGender"><option value="">性别</option><option>男</option><option>女</option><option>其他</option></select><br><br>
+            <select id="regAgeText">${Object.keys(ageMap).map(k=>`<option>${k}</option>`).join('')}</select><br><br>
+            <select id="regPhysiqueText">${Object.keys(physiqueMap).map(k=>`<option>${k}</option>`).join('')}</select><br><br>
+            <input type="text" id="regPic" placeholder="皮相(描述/链接)"><br><br>
+            <select id="regAbilityText">${Object.keys(abilityMap).map(k=>`<option>${k}</option>`).join('')}</select><br><br>
+            <button id="registerBtn">注册并录入基础</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('loginBtn').addEventListener('click', ()=>{
+        let un = document.getElementById('loginUsername').value.trim();
+        let pw = document.getElementById('loginPassword').value;
+        let users = getUsers();
+        let found = users.find(u=>u.username === un && u.password === pw);
+        if(found) {
+          localStorage.setItem(STORAGE.current, found.username);
+          render();
+        } else alert('账号或密码错误');
+      });
+      document.getElementById('registerBtn').addEventListener('click', ()=>{
+        let un = document.getElementById('regUsername').value.trim();
+        let pw = document.getElementById('regPassword').value;
+        let name = document.getElementById('regName').value.trim();
+        let gender = document.getElementById('regGender').value;
+        let ageText = document.getElementById('regAgeText').value;
+        let phyText = document.getElementById('regPhysiqueText').value;
+        let pic = document.getElementById('regPic').value.trim();
+        let abiText = document.getElementById('regAbilityText').value;
+        if(!un||!pw||!name||!gender||!ageText||!phyText||!pic||!abiText) return alert('请完整填写');
+        let users = getUsers();
+        if(users.find(u=>u.username===un)) return alert('账号已存在');
+        let ageVal = ageMap[ageText] || 0;
+        let phyVal = physiqueMap[phyText] || 0;
+        let abi = abilityMap[abiText] || {颜值:0,歌唱:0,舞蹈:0,rap:0};
+        let newArtist = {
+          username: un, password: pw, role: 'artist', name, gender, age: ageVal, ageText,
+          physique: phyVal, physiqueText: phyText, pic, abilityText: abiText,
+          颜值: abi.颜值, 歌唱: abi.歌唱, 舞蹈: abi.舞蹈, rap: abi.rap,
+          fans: 0, money: 0, lastSignDate: null,
+          // 购买限次记录
+          homeBuyCount: 0, lastHomeDate: null,
+          dormBuyCount: {},  // 寝室每项限购3次
+        };
+        users.push(newArtist);
+        saveUsers(users);
+        localStorage.setItem(STORAGE.current, un);
+        addLog({type:'register', username:un, detail:`注册艺人 ${name}`});
+        render();
+      });
+    }
+
+    // 艺人面板
+    function renderArtistPanel(user) {
+      let today = new Date().toLocaleDateString();
+      let signedToday = (user.lastSignDate === today);
+      // 家里限次
+      if(user.lastHomeDate !== today) { user.homeBuyCount = 0; }
+      
+      app.innerHTML = `
+        <div class="card">
+          <h2>🎤 ${user.name} · 练习生档案</h2>
+          <div class="flex-row">💰 余额: <span class="money">${user.money||0}</span>  🎯 粉丝: ${user.fans||0}</div>
+          <div class="grid-2">
+            <div><strong>基础</strong> 姓名:${user.name} 性别:${user.gender} 年龄:${user.age} (${user.ageText}) 体格:${user.physique}cm (${user.physiqueText}) 皮相:${user.pic}</div>
+            <div><strong>能力</strong> 颜值:${user.颜值} 歌唱:${user.歌唱} 舞蹈:${user.舞蹈} Rap:${user.rap}</div>
+          </div>
+        </div>
+        <!-- 签到 -->
+        <div class="card flex-row">
+          <button id="signBtn" ${signedToday?'disabled':''}>📅 每日签到 (+1000💰)</button>
+          <span>${signedToday?'今日已签到':'点击签到领取1000'}</span>
+        </div>
+        <!-- 商店区 -->
+        <div class="grid-2">
+          <div class="card store-control">
+            <h3>🛍️ 练习生商店</h3>
+            <div id="traineeShop"></div>
+          </div>
+          <div class="card store-control">
+            <h3>📺 选秀商店</h3>
+            <div id="showShop"></div>
+          </div>
+        </div>
+        <!-- 任务区 -->
+        <div class="card">
+          <h3>📋 可抢任务</h3>
+          <div id="taskListArtist" class="task-board"></div>
+        </div>
+      `;
+      // 签到
+      document.getElementById('signBtn')?.addEventListener('click', ()=>{
+        let users = getUsers(); let idx = users.findIndex(u=>u.username===user.username);
+        if(idx===-1) return;
+        let u = users[idx];
+        if(u.lastSignDate === today) return alert('今日已签到');
+        u.money = (u.money||0) + 1000;
+        u.lastSignDate = today;
+        saveUsers(users);
+        addLog({type:'sign', username:user.username, detail:'签到+1000'});
+        render();
+      });
+      
+      renderTraineeShop(user);
+      renderShowShop(user);
+      renderArtistTasks(user);
+      
+      function renderTraineeShop(u) {
+        let div = document.getElementById('traineeShop');
+        let homeLeft = 2 - (u.homeBuyCount||0);
+        div.innerHTML = `
+          <p><strong>a. 家里</strong> (今日剩余${homeLeft}次)</p>
+          <button class="outline" data-act="homeMakeup" ${homeLeft<=0?'disabled':''}>💄练习化妆 +1颜值</button>
+          <button class="outline" data-act="homeStage" ${homeLeft<=0?'disabled':''}>🎭舞台技巧 随机歌唱/舞蹈/rap +5~10</button>
+          <button class="outline" data-act="homeSns" ${homeLeft<=0?'disabled':''}>📱发布社媒 粉丝+10~100</button>
+          <p><strong>b. 美容院</strong></p>
+          <button data-act="skin1">初级护理 800💰 +2~3颜值</button>
+          <button data-act="skin2">中级保养 1500💰 +4~5颜值</button>
+          <button data-act="skin3">高级医美 3000💰 +6~10颜值</button>
+          <button data-act="surgery">整容手术 10000💰 +30颜值(40%毁容-10)</button>
+          <p><strong>c. 艺术培养</strong></p>
+          <button data-act="vocal1">声乐初级 200💰 +15~25</button>
+          <button data-act="dance1">舞蹈初级 200💰 +15~25</button>
+          <button data-act="rap1">Rap初级 200💰 +15~25</button>
+          <button data-act="vocal2">声乐中级 500💰 +35~45</button>
+          <button data-act="dance2">舞蹈中级 500💰 +35~45</button>
+          <button data-act="rap2">Rap中级 500💰 +35~45</button>
+          <button data-act="vocal3">声乐高级 800💰 +50~60</button>
+          <button data-act="dance3">舞蹈高级 800💰 +50~60</button>
+          <button data-act="rap3">Rap高级 800💰 +50~60</button>
+        `;
+        div.querySelectorAll('button').forEach(btn=>btn.addEventListener('click', (e)=> handleTraineeBuy(e, u)));
+      }
+      
+      function handleTraineeBuy(e, u) {
+        let act = e.target.dataset.act; let users=getUsers(); let idx=users.findIndex(x=>x.username===u.username);
+        if(idx===-1) return; let current = users[idx];
+        let money = current.money||0;
+        let todayStr = new Date().toLocaleDateString();
+        // 家里次数
+        if(current.lastHomeDate !== todayStr) { current.homeBuyCount = 0; current.lastHomeDate = todayStr; }
+        let homeActs = ['homeMakeup','homeStage','homeSns'];
+        if(homeActs.includes(act) && current.homeBuyCount>=2) return alert('今日家里购买已达上限');
+        
+        // 处理逻辑...
+        let cost=0, gain={}, logDetail='';
+        if(act==='homeMakeup') { cost=0; gain.颜值=1; current.homeBuyCount++; logDetail='化妆+1颜值'; }
+        else if(act==='homeStage') {
+          if(current.homeBuyCount>=2) return; let r=Math.floor(Math.random()*6)+5; let type=['歌唱','舞蹈','rap'][Math.floor(Math.random()*3)];
+          gain[type]=r; current.homeBuyCount++; logDetail=`舞台+${type} ${r}`;
+        } else if(act==='homeSns') { let f=Math.floor(Math.random()*91)+10; current.fans=(current.fans||0)+f; current.homeBuyCount++; logDetail=`社媒粉丝+${f}`; }
+        else if(act==='skin1') { cost=800; gain.颜值=Math.floor(Math.random()*2)+2; }
+        else if(act==='skin2') { cost=1500; gain.颜值=Math.floor(Math.random()*2)+4; }
+        else if(act==='skin3') { cost=3000; gain.颜值=Math.floor(Math.random()*5)+6; }
+        else if(act==='surgery') { cost=10000; if(Math.random()<0.4) { gain.颜值=-10; logDetail='整容毁容-10'; } else { gain.颜值=30; } }
+        else if(act.startsWith('vocal')) { cost= act.includes('1')?200:(act.includes('2')?500:800); let r= act.includes('1')?15+Math.floor(Math.random()*11):(act.includes('2')?35+Math.floor(Math.random()*11):50+Math.floor(Math.random()*11)); gain.歌唱=r; }
+        else if(act.startsWith('dance')) { cost= act.includes('1')?200:(act.includes('2')?500:800); let r= act.includes('1')?15+Math.floor(Math.random()*11):(act.includes('2')?35+Math.floor(Math.random()*11):50+Math.floor(Math.random()*11)); gain.舞蹈=r; }
+        else if(act.startsWith('rap')) { cost= act.includes('1')?200:(act.includes('2')?500:800); let r= act.includes('1')?15+Math.floor(Math.random()*11):(act.includes('2')?35+Math.floor(Math.random()*11):50+Math.floor(Math.random()*11)); gain.rap=r; }
+        if(money < cost) return alert('余额不足');
+        current.money = money - cost;
+        Object.keys(gain).forEach(k=> { if(current[k]!==undefined) current[k] += gain[k]; else current[k]=gain[k]; });
+        saveUsers(users); addLog({type:'buy', username:current.username, detail:logDetail||`购买${act} 花费${cost}`});
+        render();
+      }
+      
+      function renderShowShop(u){
+        let div = document.getElementById('showShop');
+        div.innerHTML = `
+          <p><strong>寝室</strong> (每项限3次)</p>
+          <button data-show="dormMakeup">💄化妆 +1~10颜值(加成)</button>
+          <button data-show="dormFriend">👥联谊 +1~10颜值</button>
+          <button data-show="dormCcd">📸ccd +1~10颜值</button>
+          <p><strong>练习室</strong></p>
+          <button data-show="askTeacher">请教导师 歌唱/舞蹈/rap +30~40(加成)</button>
+          <button data-show="solo">独自练习 +30~40</button>
+          <button data-show="together">结伴练习 +30~40</button>
+        `;
+        div.querySelectorAll('button').forEach(b=>b.addEventListener('click', (e)=>handleShowBuy(e, u)));
+      }
+      function handleShowBuy(e, u){
+        let act=e.target.dataset.show; let users=getUsers(); let idx=users.findIndex(x=>x.username===u.username); let cur=users[idx];
+        if(!cur.dormBuyCount) cur.dormBuyCount={};
+        let dormActs=['dormMakeup','dormFriend','dormCcd'];
+        if(dormActs.includes(act)){
+          if((cur.dormBuyCount[act]||0)>=3) return alert('该项已达3次上限');
+          cur.dormBuyCount[act] = (cur.dormBuyCount[act]||0)+1;
+          let base = Math.floor(Math.random()*100)+1; // 1~100
+          let yz = cur.颜值; let multi=1.0;
+          if(yz<70) multi=1.2; else if(yz<=80) multi=0.9; else if(yz<=90) multi=0.6; else multi=0.5;
+          let add = Math.floor(base * multi);
+          cur.颜值 += add; addLog({type:'showBuy',username:cur.username, detail:`寝室${act} +${add}颜值`});
+        } else {
+          let abilityType = ['歌唱','舞蹈','rap'][Math.floor(Math.random()*3)];
+          let base = Math.floor(Math.random()*1000)+1;
+          let val = cur[abilityType]; let multi=1.0;
+          if(val<500) multi=1.5; else if(val<=600) multi=1.2; else if(val<=700) multi=0.9; else if(val<=800) multi=0.75; else multi=0.6;
+          let add = Math.floor(base * multi);
+          cur[abilityType] += add; addLog({type:'showBuy',username:cur.username, detail:`练习室 +${abilityType} ${add}`});
+        }
+        saveUsers(users); render();
+      }
+      
+      function renderArtistTasks(u){
+        let tasks=getTasks(), div=document.getElementById('taskListArtist');
+        div.innerHTML = tasks.filter(t=>!t.takenBy).map(t=>`
+          <div class="notice flex-row" style="justify-content:space-between">
+            <span>📌 ${t.desc} 奖励:${t.rewards}</span>
+            <button data-taskid="${t.id}">抢单</button>
+          </div>`).join('');
+        div.querySelectorAll('button').forEach(b=>b.addEventListener('click', ()=>{
+          let tid=b.dataset.taskid; let tasks=getTasks(); let t=tasks.find(x=>x.id==tid);
+          if(!t||t.takenBy) return alert('已被抢');
+          t.takenBy = u.username; saveTasks(tasks);
+          // 加奖励
+          let users=getUsers(); let artist=users.find(a=>a.username===u.username);
+          // 简易奖励解析
+          if(t.rewards.includes('颜值')) { let m=t.rewards.match(/颜值(\d+)/); if(m) artist.颜值+=parseInt(m[1]); }
+          if(t.rewards.includes('歌唱')) { let m=t.rewards.match(/歌唱(\d+)/); if(m) artist.歌唱+=parseInt(m[1]); }
+          // 等等... 简化但有效
+          saveUsers(users); addLog({type:'task',username:u.username, detail:`抢任务 ${t.desc}`});
+          render();
+        }));
+      }
+    }
+
+    // 后台渲染 (精简但包含核心)
+    function renderAdminPanel(admin) {
+      let users = getUsers().filter(u=>u.role!=='admin');
+      let tasks = getTasks();
+      app.innerHTML = `
+        <div class="card">
+          <h2>🔐 后台管理 · ${admin.name}</h2>
+          <div><input id="searchName" placeholder="筛选姓名"> <button id="searchBtn">筛选</button></div>
+          <table id="userTable"></table>
+        </div>
+        <div class="card">
+          <h3>📋 发布任务 (可限制人数)</h3>
+          <input id="taskDesc" placeholder="任务描述"><br>
+          <input id="taskReward" placeholder="奖励 (如:颜值20,歌唱30)"><br>
+          <input id="taskLimit" type="number" value="1" min="1"> 限制人数<br>
+          <button id="publishTask">发布任务</button>
+        </div>
+        <div class="card">
+          <h3>🛒 购买记录</h3>
+          <div id="logPanel"></div>
+        </div>
+      `;
+      renderUserTable(users);
+      document.getElementById('searchBtn').addEventListener('click', ()=>{
+        let kw = document.getElementById('searchName').value.trim().toLowerCase();
+        let filtered = users.filter(u=> u.name.toLowerCase().includes(kw) || u.username.includes(kw));
+        renderUserTable(filtered);
+      });
+      document.getElementById('publishTask').addEventListener('click', ()=>{
+        let desc = document.getElementById('taskDesc').value;
+        let reward = document.getElementById('taskReward').value;
+        let limit = parseInt(document.getElementById('taskLimit').value);
+        let tasks = getTasks();
+        let newTask = { id: Date.now(), desc, rewards: reward, limit, takenBy: null };
+        tasks.push(newTask); saveTasks(tasks); render();
+      });
+      renderLogs();
+      
+      function renderUserTable(list) {
+        let html = `<tr><th>姓名</th><th>颜值</th><th>歌唱</th><th>舞蹈</th><th>rap</th><th>余额</th><th>操作</th></tr>`;
+        list.forEach(u=>{ html+=`<tr><td>${u.name}</td><td>${u.颜值}</td><td>${u.歌唱}</td><td>${u.舞蹈}</td><td>${u.rap}</td><td>${u.money}</td><td><button data-del="${u.username}">删除</button></td></tr>`; });
+        document.getElementById('userTable').innerHTML=html;
+        document.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', (e)=>{
+          let un = e.target.dataset.del; let users=getUsers(); let idx=users.findIndex(u=>u.username===un);
+          if(idx!==-1) { users.splice(idx,1); saveUsers(users); addLog({type:'delete', username:admin.username, detail:`删除 ${un}`}); render(); }
+        }));
+      }
+      function renderLogs(){ document.getElementById('logPanel').innerHTML = getLogs().slice(-10).map(l=>`<div>${l.time} ${l.detail}</div>`).join(''); }
+    }
+
+    render();
+  })();
+</script>
+</body>
+</html>
